@@ -4,7 +4,7 @@ A concept website for **Bloom Studio**, a fictional nail and beauty studio. Its 
 a glass polish bottle and a fan of almond nail swatches, rendered in real time, that repaint themselves with an
 iridescent thin-film finish when you pick a shade. The chosen shade then follows you into a four-step booking flow.
 
-Live: <!-- LIVE_URL -->
+Live: https://bloom-studio-3d.vercel.app
 
 > Concept project — fictional brand.
 
