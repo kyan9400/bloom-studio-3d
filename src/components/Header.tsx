@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const LINKS = [
   { href: "#lab", label: "Shade Lab" },
@@ -12,13 +12,48 @@ const LINKS = [
 
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+
+  // Unlock scroll synchronously so an in-page link click can still scroll to its target.
+  const close = useCallback((restoreFocus = true) => {
+    document.body.style.overflow = "";
+    setOpen(false);
+    if (restoreFocus) buttonRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // A link hands the keyboard to its section; pulling focus back to the button would undo that.
+  const onLinkClick = () => close(false);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.body.style.overflow = "hidden";
+    panelRef.current?.querySelector<HTMLAnchorElement>("a")?.focus({ preventScroll: true });
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    // The sheet doesn't cover the whole screen: a tap on the page below it, or tabbing out of it, dismisses it.
+    const outside = (target: EventTarget | null) =>
+      !panelRef.current?.contains(target as Node) && !buttonRef.current?.contains(target as Node);
+    const onPointerDown = (e: PointerEvent) => outside(e.target) && close();
+    const onFocusIn = (e: FocusEvent) => outside(e.target) && close(false);
+    // The panel only exists below the desktop breakpoint; close it if the viewport grows past it.
+    const wide = window.matchMedia("(min-width: 960px)");
+    const onWide = () => wide.matches && close(false);
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("focusin", onFocusIn);
+    wide.addEventListener("change", onWide);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("focusin", onFocusIn);
+      wide.removeEventListener("change", onWide);
+      document.body.style.overflow = "";
+    };
+  }, [open, close]);
 
   return (
     <header className="site-header">
@@ -46,32 +81,38 @@ export default function Header() {
         </nav>
 
         <div className="header-actions">
-          <a href="#book" className="btn btn-primary btn-small">
+          <a href="#book" className="btn btn-primary btn-small header-cta">
             Book a chair
           </a>
           <button
+            ref={buttonRef}
             type="button"
             className="menu-button"
             aria-expanded={open}
             aria-controls="mobile-nav"
-            onClick={() => setOpen((o) => !o)}
+            onClick={() => (open ? close() : setOpen(true))}
           >
-            <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
+            <span className="sr-only">Menu</span>
             <span className="menu-bars" aria-hidden="true" data-open={open || undefined} />
           </button>
         </div>
       </div>
 
-      <nav id="mobile-nav" aria-label="Mobile" className="nav-mobile" hidden={!open}>
-        <ul className="wrap">
-          {LINKS.map((l) => (
-            <li key={l.href}>
-              <a href={l.href} onClick={() => setOpen(false)}>
-                {l.label}
-              </a>
-            </li>
-          ))}
-        </ul>
+      <nav id="mobile-nav" ref={panelRef} aria-label="Mobile" className="nav-mobile" hidden={!open}>
+        <div className="wrap">
+          <ul>
+            {LINKS.map((l) => (
+              <li key={l.href}>
+                <a href={l.href} onClick={onLinkClick}>
+                  {l.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <a href="#book" className="btn btn-primary nav-mobile-cta" onClick={onLinkClick}>
+            Book a chair
+          </a>
+        </div>
       </nav>
     </header>
   );

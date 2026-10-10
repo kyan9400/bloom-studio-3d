@@ -59,7 +59,7 @@ npm run lint
 
 ## Project layout
 ```
-src/app/            layout, page, 404, OG/Twitter image, icon, robots, sitemap, globals.css (design tokens)
+src/app/            layout, page, 404, OG/Twitter image (site screenshot PNG), icon, robots, sitemap, globals.css (design tokens)
 src/components/     Header, Stage (poster + lazy canvas), ShadePicker, Booking, MotionToggle, Poster
 src/three/          BloomCanvas (R3F), scene (BloomScene class), geometry, shaders, quality tiers
 src/lib/            shade data, shared studio store, motion preference, page content

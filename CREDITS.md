@@ -2,7 +2,7 @@
 
 Everything visual in Bloom Studio is made in code for this project: the 3D bottle, polish, cap and nail swatches
 (procedural lathe and parametric geometry), the thin-film shader and its procedural studio lighting, the fallback
-poster (inline SVG), the favicon (SVG), the Open Graph image (generated with `next/og`) and the artist tiles (CSS).
+poster (inline SVG), the favicon (SVG), the artist tiles (CSS) and the Open Graph / Twitter image (a screenshot of this site).
 There are **no third-party models, textures, HDRIs, photos, icons or audio** in this repository.
 
 ## Fonts (SIL Open Font License 1.1)

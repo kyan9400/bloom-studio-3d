@@ -390,31 +390,79 @@
   transform: rotate(-45deg);
 }
 
+/* Overlays the page under the sticky header (absolute, so opening it never pushes the content down). */
 .nav-mobile {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   border-top: 1px solid rgb(42 27 45 / 0.08);
+  border-bottom: 1px solid rgb(42 27 45 / 0.08);
+  box-shadow: 0 24px 48px -24px rgb(42 27 45 / 0.35);
   background: var(--color-milk);
+  max-height: calc(100svh - var(--header-h));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: nav-in 0.22s ease-out;
+}
+
+.nav-mobile[hidden] {
+  display: none;
+}
+
+@keyframes nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 .nav-mobile ul {
   list-style: none;
   margin: 0;
-  padding-block: 8px 16px;
+  padding: 8px 0 0;
 }
 
-.nav-mobile a {
+.nav-mobile li + li {
+  border-top: 1px solid rgb(42 27 45 / 0.06);
+}
+
+.nav-mobile ul a {
   width: 100%;
+  min-height: 52px;
   font-size: 18px;
   padding: 0;
+  border-radius: 0;
+}
+
+.nav-mobile .nav-mobile-cta {
+  width: 100%;
+  margin-block: 16px 24px;
+  color: var(--color-milk);
+  font-size: 16px;
+}
+
+.wordmark,
+.btn-small {
+  white-space: nowrap;
+}
+
+/* Below 480px the header CTA moves into the menu panel so the row never wraps (320px safe). */
+@media (max-width: 479px) {
+  .header-cta {
+    display: none;
+  }
 }
 
 @media (max-width: 380px) {
-  .btn-small {
-    padding: 0 14px;
-    font-size: 14px;
-  }
   .wordmark {
-    font-size: 19px;
+    font-size: 20px;
   }
+}
+
+/* .reduce-motion follows prefers-reduced-motion by default but respects the "Turn on full motion" toggle. */
+.reduce-motion .nav-mobile {
+  animation: none;
 }
 
 @media (min-width: 960px) {

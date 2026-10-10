@@ -142,7 +142,7 @@ Sun–Mon closed"
 
 ## 7. Assets & licenses
 - 3D: 100 % procedural code. No models, no textures, no HDRIs.
-- Poster, favicon, OG image, artist portraits: code-made (SVG / next/og / CSS).
+- Poster, favicon, artist portraits: code-made (SVG / CSS). OG/Twitter image: a 1200×630 screenshot of the live site.
 - Fonts: Fraunces, Manrope — SIL Open Font License 1.1, self-hosted at build time by next/font.
 - Libraries: next, react, three, @react-three/fiber (MIT).
 - No external runtime requests.
