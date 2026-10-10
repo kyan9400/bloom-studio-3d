@@ -7,7 +7,9 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   style: ["normal", "italic"],
   variable: "--font-fraunces",
-  display: "swap",
+  // The hero headline is the LCP element. "optional" never swaps the display face in late (no second,
+  // later LCP paint); it is still preloaded, so it shows whenever it arrives in time or is cached.
+  display: "optional",
 });
 
 const manrope = Manrope({

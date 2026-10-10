@@ -470,30 +470,8 @@
   gap: 12px;
 }
 
-.hero-copy .eyebrow,
-.hero-copy .lead,
-.hero-ctas {
-  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
-.hero-copy .lead {
-  animation-delay: 0.1s;
-}
-
-.hero-ctas {
-  animation-delay: 0.18s;
-}
-
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
+/* Hero text paints in its final place with the server HTML: no opacity-0 start and no intro
+   animation, so the largest contentful paint never waits for JS or a keyframe. */
 
 @media (min-width: 960px) {
   .hero {

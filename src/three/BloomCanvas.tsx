@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { NeutralToneMapping, PerspectiveCamera } from "three";
 import { studioStore } from "@/lib/studio-store";
 import { AdaptiveDpr } from "./adaptive-dpr";
-import { BloomScene, type SpinInput } from "./scene";
+import { BloomScene, yieldToMain, type SpinInput } from "./scene";
 import { TIERS, type Tier } from "./quality";
 
 type Props = {
@@ -54,7 +54,9 @@ function Warmup({ onReady }: { onReady: () => void }) {
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => {
     let alive = true;
-    gl.compileAsync(scene, camera)
+    // renderer creation was its own long task; give the main thread a breath before compiling
+    yieldToMain()
+      .then(() => (alive ? gl.compileAsync(scene, camera) : undefined))
       .catch(() => undefined)
       .then(() => {
         if (!alive) return;
@@ -109,9 +111,30 @@ function Content({
   );
 }
 
-export default function BloomCanvas({ tier, reduced, onReady, onFail }: Props) {
+/** Builds the scene in small, yielding steps, then mounts the canvas. */
+export default function BloomCanvas(props: Props) {
+  const { tier, onFail } = props;
+  const [scene, setScene] = useState<BloomScene | null>(null);
+  useEffect(() => {
+    let alive = true;
+    let built: BloomScene | null = null;
+    BloomScene.create(TIERS[tier])
+      .then((s) => {
+        built = s;
+        if (alive) setScene(s);
+        else s.dispose();
+      })
+      .catch(() => alive && onFail());
+    return () => {
+      alive = false;
+      built?.dispose();
+    };
+  }, [tier, onFail]);
+  return scene ? <LiveCanvas {...props} scene={scene} /> : null;
+}
+
+function LiveCanvas({ tier, reduced, onReady, onFail, scene }: Props & { scene: BloomScene }) {
   const settings = TIERS[tier];
-  const [scene] = useState(() => new BloomScene(settings));
   // tier cap; the adaptive controller inside the canvas moves below it when frames get slow
   const [cap] = useState(() => Math.min(window.devicePixelRatio || 1, settings.dprCap));
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -164,8 +187,6 @@ export default function BloomCanvas({ tier, reduced, onReady, onFail }: Props) {
       document.removeEventListener("visibilitychange", sync);
     };
   }, []);
-
-  useEffect(() => () => scene.dispose(), [scene]);
 
   // drag to turn (horizontal only; vertical swipes keep scrolling the page)
   useEffect(() => {

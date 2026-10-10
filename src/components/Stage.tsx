@@ -6,9 +6,10 @@ import Poster from "./Poster";
 import { useMotion } from "@/lib/motion";
 import { useStudio } from "@/lib/studio-store";
 import { FINISHES } from "@/lib/shades";
-import type { Tier } from "@/three/quality";
+import { probeQuality, type Tier } from "@/three/quality";
 
-// three.js + R3F live in their own chunk, loaded only on the client after the page is idle
+// three.js + R3F live in their own chunk. It is requested only after window "load" + an idle callback,
+// never during hydration, and never at all on software renderers (unless ?quality= forces it).
 const BloomCanvas = dynamic(() => import("@/three/BloomCanvas"), { ssr: false });
 
 type Phase = "poster" | "loading" | "ready" | "failed";
@@ -21,11 +22,11 @@ export default function Stage() {
 
   useEffect(() => {
     let cancelled = false;
-    const start = async () => {
-      const { probeQuality } = await import("@/three/quality");
+    const start = () => {
       if (cancelled) return;
       const probe = probeQuality();
-      if (!probe.ok) {
+      // no WebGL, or a CPU rasteriser that would spend seconds compiling shaders: keep the poster
+      if (!probe.ok || (probe.software && !probe.forced)) {
         setPhase("failed");
         return;
       }
@@ -40,8 +41,8 @@ export default function Stage() {
     let idleHandle = 0;
     let timeoutHandle = 0;
     const schedule = () => {
-      if (w.requestIdleCallback) idleHandle = w.requestIdleCallback(() => void start(), { timeout: 2500 });
-      else timeoutHandle = window.setTimeout(() => void start(), 600);
+      if (w.requestIdleCallback) idleHandle = w.requestIdleCallback(() => start(), { timeout: 2500 });
+      else timeoutHandle = window.setTimeout(() => start(), 600);
     };
     if (document.readyState === "complete") schedule();
     else window.addEventListener("load", schedule, { once: true });

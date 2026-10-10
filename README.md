@@ -38,8 +38,14 @@ Live: https://bloom-studio-3d.vercel.app
   measures unbroken chains of animation frames, so render-on-demand idle gaps never count as slow frames.
 - Shaders are compiled with `gl.compileAsync` behind a small "Mixing pigments" veil; the SVG poster is visible until then.
 - No allocations or React state updates per frame; no `backdrop-filter`; CSS animates only transform/opacity.
-- The 3D chunk loads after the page is idle, so the server-rendered HTML (and the poster) paint first.
+- The 3D chunk is requested only after window `load` + `requestIdleCallback` (2.5 s timeout), never during
+  hydration, so the server-rendered HTML (hero text and the poster) paints and becomes interactive first. Scene
+  geometry is built in small steps that yield to the main thread, with one more yield before `compileAsync`.
+- Software WebGL (SwiftShader, llvmpipe, softpipe, Microsoft Basic Render, Mesa offscreen, or a context that only
+  exists with `failIfMajorPerformanceCaveat` off) → the 3D chunk is never downloaded; the poster stays.
+  `?quality=low|medium|high` still forces the canvas on. The probe is a 1×1 context, no three.js import.
 - No WebGL or a lost context → the designed SVG poster stays, and the shade picker still recolours it.
+- Hero copy has no intro animation; the display face uses `font-display: optional` so the LCP headline never repaints late.
 - Motion: `prefers-reduced-motion` is respected by default (no idle sway, colour changes cut instead of tween);
   a **Turn on full motion** button (hero + footer) overrides it, remembered in `localStorage`, `?motion=full` also works.
 

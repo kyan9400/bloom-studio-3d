@@ -63,6 +63,36 @@ const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 
 
 const TWEEN_SECONDS = 0.75;
 
+/** Let the browser handle input and paint between heavy steps (keeps each task short). */
+export const yieldToMain = () =>
+  new Promise<void>((resolve) => {
+    const s = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+    if (s?.yield) s.yield().then(resolve, () => setTimeout(resolve, 0));
+    else setTimeout(resolve, 0);
+  });
+
+type Geometries = {
+  polish: BufferGeometry;
+  cap: BufferGeometry;
+  stem: BufferGeometry;
+  glass: BufferGeometry;
+  swatch: BufferGeometry;
+};
+
+/** Procedural geometry, one piece per task. */
+async function buildGeometries(seg: number): Promise<Geometries> {
+  const polish = polishGeometry(seg);
+  await yieldToMain();
+  const cap = capGeometry(seg);
+  const stem = stemGeometry(seg);
+  await yieldToMain();
+  const glass = glassGeometry(seg);
+  await yieldToMain();
+  const swatch = swatchGeometry(seg >= 64 ? 22 : 14, seg >= 64 ? 36 : 22);
+  await yieldToMain();
+  return { polish, cap, stem, glass, swatch };
+}
+
 export class BloomScene {
   readonly root = new Group();
   private readonly spin = new Group();
@@ -87,10 +117,15 @@ export class BloomScene {
   private swayWeight = 0;
   private spinNow = 0;
 
-  constructor(settings: TierSettings) {
+  /** Build the scene in small steps so no single task blocks the main thread for long. */
+  static async create(settings: TierSettings): Promise<BloomScene> {
+    const geos = await buildGeometries(settings.segments);
+    return new BloomScene(settings, geos);
+  }
+
+  private constructor(settings: TierSettings, geos: Geometries) {
     this.sparkleOn = settings.sparkle;
     this.swayOn = settings.sway;
-    const seg = settings.segments;
 
     this.root.add(this.spin);
     this.spin.rotation.y = 0;
@@ -103,7 +138,7 @@ export class BloomScene {
 
     const polish = filmMaterial(2.1, 0);
     this.polish = polish.uniforms;
-    const polishGeo = this.track(polishGeometry(seg));
+    const polishGeo = this.track(geos.polish);
     const polishMesh = new Mesh(polishGeo, polish.material);
     polishMesh.renderOrder = 1;
     bottle.add(polishMesh);
@@ -112,9 +147,9 @@ export class BloomScene {
     cap.uniforms.uBase.value.set("#1d1220");
     cap.uniforms.uFilm.value = 0.12;
     cap.uniforms.uThickness.value = 300;
-    const capGeo = this.track(capGeometry(seg));
+    const capGeo = this.track(geos.cap);
     bottle.add(new Mesh(capGeo, cap.material));
-    const stemGeo = this.track(stemGeometry(seg));
+    const stemGeo = this.track(geos.stem);
     bottle.add(new Mesh(stemGeo, cap.material));
 
     const glass = new ShaderMaterial({
@@ -125,7 +160,7 @@ export class BloomScene {
       depthWrite: false,
       side: DoubleSide,
     });
-    const glassGeo = this.track(glassGeometry(seg));
+    const glassGeo = this.track(geos.glass);
     const glassMesh = new Mesh(glassGeo, glass);
     glassMesh.renderOrder = 3;
     bottle.add(glassMesh);
@@ -134,7 +169,7 @@ export class BloomScene {
     const count = settings.swatches;
     const swatch = filmMaterial(5.5, 1, FrontSide);
     this.swatches = swatch.uniforms;
-    const swatchGeo = this.track(swatchGeometry(seg >= 64 ? 22 : 14, seg >= 64 ? 36 : 22));
+    const swatchGeo = this.track(geos.swatch);
     const seeds = new Float32Array(count);
     for (let i = 0; i < count; i++) seeds[i] = count === 1 ? 0 : i / (count - 1);
     swatchGeo.setAttribute("aSeed", new InstancedBufferAttribute(seeds, 1));

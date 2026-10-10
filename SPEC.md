@@ -60,6 +60,10 @@ hero and footer (localStorage `bloom-motion`, `?motion=full` overrides).
 **Warm-up**: shaders compiled with `gl.compileAsync(scene, camera)` behind a small "Mixing pigments" veil; the
 poster stays visible until then.
 
+**Loading**: the 3D chunk is imported only after window `load` + an idle callback, never during hydration.
+Software renderers (SwiftShader, llvmpipe, Basic Render, failIfMajorPerformanceCaveat refusal) never load it and
+keep the poster; `?quality=` forces the canvas on.
+
 **No-WebGL / context lost**: a designed SVG poster (bottle silhouette, swatch fan, gradient) — always rendered on the
 server, so it is also the LCP placeholder. The picker still works (poster recolours via CSS custom properties).
 
@@ -146,7 +150,7 @@ Sun–Mon closed"
 ## 8. Performance budget
 - Route first-load JS < 250 KB gzip, excluding the lazy 3D chunk (three + r3f loaded via next/dynamic ssr:false).
 - No GSAP / Lenis: nothing on this page is scroll-linked, so native scroll is used (zero smoothing layers).
-- LCP = hero H1 text (server-rendered); poster is inline SVG (no image request).
+- LCP = hero H1 text (server-rendered, no intro animation, display face `font-display: optional`); poster is inline SVG (no image request).
 - 3D: one draw call per object (bottle glass, liquid, cap, brush stem, swatches instanced, shadow) ≈ 6 draw calls.
 - No per-frame allocations, no React state per frame, loop stops when idle / off-screen / hidden tab.
 - No backdrop-filter anywhere.
