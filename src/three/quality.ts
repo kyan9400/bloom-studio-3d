@@ -11,17 +11,58 @@ export type Tier = "low" | "medium" | "high";
 
 export type TierSettings = {
   dprCap: number;
-  segments: number;
+  segments: number; // lathe segments around the axis
+  profilePoints: number; // arc-length samples per lathe profile (per ~1.6 units of length)
   swatches: number;
   sparkle: boolean;
   sway: boolean;
   antialias: boolean;
+  capRibs: boolean; // analytic grip ribs on the cap
+  label: boolean; // frosted label band on the glass
+  floorGlow: boolean; // additive "light through coloured glass" glow
+  refraction: boolean; // env-refraction term in the glass shader
 };
 
 export const TIERS: Record<Tier, TierSettings> = {
-  high: { dprCap: 2, segments: 96, swatches: 7, sparkle: true, sway: true, antialias: true },
-  medium: { dprCap: 1.5, segments: 64, swatches: 6, sparkle: false, sway: true, antialias: true },
-  low: { dprCap: 1, segments: 40, swatches: 5, sparkle: false, sway: false, antialias: false },
+  high: {
+    dprCap: 2,
+    segments: 96,
+    profilePoints: 96,
+    swatches: 7,
+    sparkle: true,
+    sway: true,
+    antialias: true,
+    capRibs: true,
+    label: true,
+    floorGlow: true,
+    refraction: true,
+  },
+  medium: {
+    dprCap: 1.5,
+    segments: 64,
+    profilePoints: 72,
+    swatches: 6,
+    sparkle: false,
+    sway: true,
+    antialias: true,
+    capRibs: true,
+    label: true,
+    floorGlow: false,
+    refraction: true,
+  },
+  low: {
+    dprCap: 1,
+    segments: 48,
+    profilePoints: 48,
+    swatches: 5,
+    sparkle: false,
+    sway: false,
+    antialias: false,
+    capRibs: false,
+    label: true,
+    floorGlow: false,
+    refraction: false,
+  },
 };
 
 const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|basic render|mesa offscreen/i;

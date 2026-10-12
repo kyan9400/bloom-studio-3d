@@ -36,9 +36,13 @@ function Driver({
   const setDpr = useThree((s) => s.setDpr);
   const [adaptive] = useState(() => new AdaptiveDpr(cap, setDpr));
   const chained = useRef(false);
+  const step = useRef({ sway: false, reduced: false });
   useFrame((state, delta) => {
     const f = flags.current;
-    const moving = scene.update(Math.min(delta, 1 / 20), input.current, f.visible && !f.reduced);
+    step.current.sway = f.visible && !f.reduced;
+    step.current.reduced = f.reduced;
+    const moving = scene.update(Math.min(delta, 1 / 20), input.current, step.current);
+    if (state.camera instanceof PerspectiveCamera) scene.applyCamera(state.camera);
     if (chained.current) adaptive.frame(delta * 1000, performance.now());
     chained.current = moving && f.visible;
     if (chained.current) state.invalidate();
@@ -46,8 +50,8 @@ function Driver({
   return null;
 }
 
-/** Compile every shader behind the veil, then reveal. */
-function Warmup({ onReady }: { onReady: () => void }) {
+/** Compile every shader behind the veil, then reveal and switch the studio lights on. */
+function Warmup({ scene: bloom, flags, onReady }: { scene: BloomScene; flags: RefObject<Flags>; onReady: () => void }) {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
@@ -60,18 +64,19 @@ function Warmup({ onReady }: { onReady: () => void }) {
       .catch(() => undefined)
       .then(() => {
         if (!alive) return;
+        bloom.startLights(flags.current.reduced);
         invalidate();
         requestAnimationFrame(() => alive && onReady());
       });
     return () => {
       alive = false;
     };
-  }, [gl, scene, camera, invalidate, onReady]);
+  }, [gl, scene, camera, invalidate, onReady, bloom, flags]);
   return null;
 }
 
 /** Narrow (portrait) stages pull the camera back so the bottle and fan always fit. */
-function Framing() {
+function Framing({ scene }: { scene: BloomScene }) {
   const camera = useThree((s) => s.camera);
   const width = useThree((s) => s.size.width);
   const height = useThree((s) => s.size.height);
@@ -79,12 +84,10 @@ function Framing() {
   useEffect(() => {
     if (!(camera instanceof PerspectiveCamera)) return;
     const aspect = width / Math.max(1, height);
-    const pull = 1 / Math.min(1, aspect / 0.95);
-    camera.position.set(0.12, 1.5, 5.7 * pull);
-    camera.lookAt(0.12, 1.12, 0);
-    camera.updateProjectionMatrix();
+    scene.setPull(1 / Math.min(1, aspect / 0.95));
+    scene.applyCamera(camera, true);
     invalidate();
-  }, [camera, width, height, invalidate]);
+  }, [camera, width, height, invalidate, scene]);
   return null;
 }
 
@@ -105,8 +108,8 @@ function Content({
     <>
       <primitive object={scene.root} />
       <Driver scene={scene} input={input} flags={flags} cap={cap} />
-      <Framing />
-      <Warmup onReady={onReady} />
+      <Framing scene={scene} />
+      <Warmup scene={scene} flags={flags} onReady={onReady} />
     </>
   );
 }
@@ -138,7 +141,7 @@ function LiveCanvas({ tier, reduced, onReady, onFail, scene }: Props & { scene: 
   // tier cap; the adaptive controller inside the canvas moves below it when frames get slow
   const [cap] = useState(() => Math.min(window.devicePixelRatio || 1, settings.dprCap));
   const wrapRef = useRef<HTMLDivElement>(null);
-  const input = useRef<SpinInput>({ target: 0, velocity: 0, dragging: false });
+  const input = useRef<SpinInput>({ target: 0, velocity: 0, dragging: false, scroll: 0 });
   const flags = useRef<Flags>({ visible: true, reduced });
   const invalidateRef = useRef<(() => void) | null>(null);
 
@@ -164,6 +167,23 @@ function LiveCanvas({ tier, reduced, onReady, onFail, scene }: Props & { scene: 
       unsubscribe();
     };
   }, [scene]);
+
+  // keyboard turn buttons + the scroll moment, fed from the page through the studio store
+  useEffect(() => {
+    studioStore.spin((step) => {
+      input.current.velocity = 0;
+      input.current.target += step;
+      invalidateRef.current?.();
+    });
+    studioStore.moment((u) => {
+      input.current.scroll = u;
+      invalidateRef.current?.();
+    });
+    return () => {
+      studioStore.spin(null);
+      studioStore.moment(null);
+    };
+  }, []);
 
   // pause when off-screen or in a hidden tab
   useEffect(() => {

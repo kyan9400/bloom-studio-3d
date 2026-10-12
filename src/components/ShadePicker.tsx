@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { FINISHES, SHADES, type Finish } from "@/lib/shades";
 import { studioStore, useStudio } from "@/lib/studio-store";
 
@@ -8,6 +8,20 @@ export default function ShadePicker() {
   const studio = useStudio();
   const id = useId();
   const finishNote = FINISHES.find((f) => f.id === studio.finish)?.note;
+  const finishLabel = FINISHES.find((f) => f.id === studio.finish)?.label;
+  const readout = `${capitalise(studio.name)}, ${finishLabel} · ${finishNote}`;
+
+  // Screen readers hear the choice once the picking stops (a colour-input drag fires on every tick);
+  // the visible readout below stays instant.
+  const [announced, setAnnounced] = useState("");
+  // the page-load value is never announced; after the first real change every value is
+  const initial = useRef<string | null>(readout);
+  useEffect(() => {
+    if (readout === initial.current) return;
+    initial.current = null;
+    const t = window.setTimeout(() => setAnnounced(readout), 400);
+    return () => window.clearTimeout(t);
+  }, [readout]);
 
   return (
     <div className="picker">
@@ -64,12 +78,15 @@ export default function ShadePicker() {
         </div>
       </fieldset>
 
-      <p className="picker-readout" aria-live="polite">
+      <p className="picker-readout">
         <span className="picker-readout-name">{capitalise(studio.name)}</span>
         <span className="picker-readout-note">
-          {FINISHES.find((f) => f.id === studio.finish)?.label} · {finishNote}
+          {finishLabel} · {finishNote}
         </span>
       </p>
+      <span className="sr-only" aria-live="polite">
+        {announced}
+      </span>
     </div>
   );
 }

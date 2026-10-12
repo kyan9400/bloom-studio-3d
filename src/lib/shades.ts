@@ -23,11 +23,13 @@ export const FINISHES: { id: Finish; label: string; note: string }[] = [
   { id: "chrome", label: "Chrome", note: "Mirror metal, tinted" },
 ];
 
-/** Shader settings for each finish. film = thin-film strength, thickness in nm. */
-export const FINISH_UNIFORMS: Record<Finish, { film: number; thickness: number; metal: number; sparkle: number }> = {
-  glass: { film: 0.22, thickness: 360, metal: 0, sparkle: 0 },
-  aurora: { film: 1, thickness: 540, metal: 0.18, sparkle: 1 },
-  chrome: { film: 0.5, thickness: 300, metal: 1, sparkle: 0.35 },
+/** Shader settings for each finish. film = thin-film strength, thickness in nm, rough = coat GGX roughness. */
+export type FinishUniforms = { film: number; thickness: number; metal: number; sparkle: number; rough: number };
+
+export const FINISH_UNIFORMS: Record<Finish, FinishUniforms> = {
+  glass: { film: 0.22, thickness: 360, metal: 0, sparkle: 0, rough: 0.06 },
+  aurora: { film: 1, thickness: 540, metal: 0.18, sparkle: 1, rough: 0.1 },
+  chrome: { film: 0.5, thickness: 300, metal: 1, sparkle: 0.35, rough: 0.18 },
 };
 
 export const DEFAULT_SHADE = SHADES[0];

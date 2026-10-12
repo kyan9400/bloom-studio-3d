@@ -16,14 +16,19 @@ const manrope = Manrope({
   subsets: ["latin"],
   variable: "--font-manrope",
   display: "swap",
+  // body font: not preloaded, so it never competes with the LCP headline font for bandwidth
+  preload: false,
 });
 
 const SITE_URL = "https://bloom-studio-3d.vercel.app";
+// The Pages mirror serves files under /bloom-studio-3d on github.io, so OG image URLs must resolve there.
+// Canonical and og:url stay on the main Vercel site.
+const ASSET_ORIGIN = process.env.GH_PAGES === "1" ? "https://kyan9400.github.io" : SITE_URL;
 const DESCRIPTION =
   "Bloom Studio is a nail and beauty studio in the Old Flower Market. Mix your shade in the 3D Shade Lab, choose a glass, aurora or chrome finish, and book a chair.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
+  metadataBase: new URL(ASSET_ORIGIN),
   title: {
     default: "Bloom Studio — Nail & beauty studio",
     template: "%s · Bloom Studio",
@@ -32,10 +37,10 @@ export const metadata: Metadata = {
   applicationName: "Bloom Studio",
   authors: [{ name: "Alhassan Alfarran", url: "https://github.com/kyan9400" }],
   creator: "Alhassan Alfarran",
-  alternates: { canonical: "/" },
+  alternates: { canonical: `${SITE_URL}/` },
   openGraph: {
     type: "website",
-    url: "/",
+    url: `${SITE_URL}/`,
     siteName: "Bloom Studio",
     title: "Bloom Studio — Colour, mixed for your hands",
     description: DESCRIPTION,

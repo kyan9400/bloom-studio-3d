@@ -3,7 +3,25 @@ import Stage from "@/components/Stage";
 import ShadePicker from "@/components/ShadePicker";
 import Booking from "@/components/Booking";
 import MotionToggle from "@/components/MotionToggle";
-import { ARTISTS, FAQ, SERVICES } from "@/lib/content";
+import Enhance from "@/components/Enhance";
+import { ARTISTS, FAQ, REVIEWS, SERVICES } from "@/lib/content";
+import { SHADES } from "@/lib/shades";
+
+const SITE_URL = "https://bloom-studio-3d.vercel.app";
+
+// WebSite only: the studio is fictional, so no LocalBusiness node with a made-up address.
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Bloom Studio",
+  url: SITE_URL,
+  description:
+    "Concept website for a nail and beauty studio: mix a shade in the 3D Shade Lab, choose a finish and book a chair.",
+  inLanguage: "en-GB",
+  creator: { "@type": "Person", name: "Alhassan Alfarran", url: "https://github.com/kyan9400" },
+};
+
+const RITUAL = ["Uncap.", "Load the brush.", "Lay it down, coat by coat."];
 
 const CONTACTS = [
   { label: "WhatsApp", href: "https://wa.me/79193999749" },
@@ -37,6 +55,7 @@ const STATS = [
 export default function Home() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <a href="#main" className="skip-link">
         Skip to content
       </a>
@@ -47,11 +66,17 @@ export default function Home() {
         <section id="lab" className="hero" aria-labelledby="hero-title">
           <span id="top" className="anchor-top" aria-hidden="true" />
           <div className="wrap hero-grid">
-            <div className="hero-copy">
+            <div className="hero-head">
+              <p className="hero-meta">
+                <span>N° 01 — Shade Lab</span>
+                <span className="hero-meta-rule" aria-hidden="true" />
+              </p>
               <p className="eyebrow">Nail &amp; beauty studio · Old Flower Market</p>
               <h1 id="hero-title" className="display">
                 Colour, mixed <em>for your hands.</em>
               </h1>
+            </div>
+            <div className="hero-copy">
               <p className="lead">
                 Every appointment at Bloom starts in the Shade Lab. Pick a pigment, choose a finish, watch it catch
                 the light — then we lay it down, coat by coat, in a quiet studio that never runs late.
@@ -68,23 +93,46 @@ export default function Home() {
 
             <div className="hero-stage">
               <Stage />
-              <div className="stage-meta">
-                <p className="stage-hint">Drag the bottle to turn it.</p>
-                <MotionToggle variant="hint" />
-              </div>
             </div>
 
             <div className="hero-picker">
               <ShadePicker />
             </div>
+
+            <ol className="ritual" aria-label="The ritual">
+              {RITUAL.map((step, i) => (
+                <li key={step} className="ritual-step">
+                  <span className="ritual-num" aria-hidden="true">
+                    0{i + 1}
+                  </span>
+                  <span className="ritual-text">{step}</span>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
+
+        {/* ---------------------------------------------------------- Shade ribbon (decorative) */}
+        <div className="ribbon" aria-hidden="true">
+          <div className="ribbon-track">
+            {[0, 1].map((copy) => (
+              <p key={copy} className="ribbon-row">
+                {SHADES.map((s) => (
+                  <span key={s.id} className="ribbon-item">
+                    {s.name}
+                    <span className="ribbon-glyph" />
+                  </span>
+                ))}
+              </p>
+            ))}
+          </div>
+        </div>
 
         {/* ---------------------------------------------------------- Menu */}
         <section id="menu" className="section" aria-labelledby="menu-title">
           <div className="wrap">
             <div className="section-head">
-              <p className="eyebrow">01 — Services</p>
+              <p className="eyebrow">01 / Services</p>
               <h2 id="menu-title" className="h2">
                 The menu
               </h2>
@@ -116,7 +164,7 @@ export default function Home() {
         <section id="studio" className="section section-dark" aria-labelledby="studio-title">
           <div className="wrap studio-grid">
             <div className="section-head">
-              <p className="eyebrow eyebrow-light">02 — The studio</p>
+              <p className="eyebrow eyebrow-light">02 / The studio</p>
               <h2 id="studio-title" className="h2">
                 A slower kind <em>of studio</em>
               </h2>
@@ -151,7 +199,7 @@ export default function Home() {
         <section id="artists" className="section" aria-labelledby="artists-title">
           <div className="wrap">
             <div className="section-head">
-              <p className="eyebrow">03 — Artists</p>
+              <p className="eyebrow">03 / Artists</p>
               <h2 id="artists-title" className="h2">
                 The hands <em>behind it</em>
               </h2>
@@ -184,11 +232,49 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ---------------------------------------------------------- Reviews */}
+        <section id="reviews" className="section section-reviews" aria-labelledby="reviews-title">
+          <div className="wrap">
+            <div className="section-head">
+              <p className="eyebrow">04 / Reviews</p>
+              <h2 id="reviews-title" className="h2">
+                Hands that <em>came back</em>
+              </h2>
+            </div>
+            <ul className="reviews">
+              {REVIEWS.map((r, i) => {
+                const shade = SHADES.find((s) => s.id === r.shadeId);
+                return (
+                  <li key={r.name} className={i === 0 ? "review review-lead" : "review"}>
+                    <figure>
+                      <blockquote>
+                        <p>&ldquo;{r.quote}&rdquo;</p>
+                      </blockquote>
+                      <figcaption>
+                        <span
+                          className="review-swatch"
+                          aria-hidden="true"
+                          style={{ "--sw": shade?.hex } as React.CSSProperties}
+                        />
+                        <span className="review-name">{r.name}</span>
+                        <span className="review-meta">
+                          {r.service} · {shade?.name}
+                        </span>
+                      </figcaption>
+                    </figure>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="reviews-note">Reviews are part of this concept project.</p>
+          </div>
+        </section>
+
         {/* ---------------------------------------------------------- Book */}
         <section id="book" className="section section-petal" aria-labelledby="book-title">
           <div className="wrap book-grid">
             <div className="section-head">
-              <p className="eyebrow">04 — Booking</p>
+              <p className="eyebrow">05 / Booking</p>
               <h2 id="book-title" className="h2">
                 Book a chair
               </h2>
@@ -204,7 +290,7 @@ export default function Home() {
         <section id="visit" className="section" aria-labelledby="visit-title">
           <div className="wrap visit-grid">
             <div>
-              <p className="eyebrow">05 — Visit</p>
+              <p className="eyebrow">06 / Visit</p>
               <h2 id="visit-title" className="h2">
                 Visit the studio
               </h2>
@@ -233,7 +319,11 @@ export default function Home() {
               {FAQ.map((f) => (
                 <details key={f.q} className="faq-item">
                   <summary>{f.q}</summary>
-                  <p>{f.a}</p>
+                  <div className="faq-body">
+                    <div>
+                      <p>{f.a}</p>
+                    </div>
+                  </div>
                 </details>
               ))}
             </div>
@@ -242,6 +332,9 @@ export default function Home() {
       </main>
 
       <footer className="site-footer">
+        <p className="footer-sign" aria-hidden="true">
+          Bloom <em>Studio</em>
+        </p>
         <div className="wrap footer-grid">
           <div>
             <p className="footer-brand">
@@ -266,6 +359,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      <Enhance />
     </>
   );
 }

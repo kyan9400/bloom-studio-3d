@@ -154,148 +154,152 @@ export default function Booking() {
         </a>
       </p>
 
-      <h3 ref={headingRef} tabIndex={-1} className="booking-step-title">
-        <span className="sr-only">
-          Step {step + 1} of {STEPS.length}:{" "}
-        </span>
-        {["What are we doing?", "Who would you like?", "When suits you?", "How do we reach you?"][step]}
-      </h3>
+      {/* keyed by step, so each new step cross-fades in */}
+      <div key={step} className="booking-step">
+        <h3 ref={headingRef} tabIndex={-1} className="booking-step-title">
+          <span className="sr-only">
+            Step {step + 1} of {STEPS.length}:{" "}
+          </span>
+          {["What are we doing?", "Who would you like?", "When suits you?", "How do we reach you?"][step]}
+        </h3>
 
-      {step === 0 && (
-        <fieldset className="choice-list">
-          <legend className="sr-only">Service</legend>
-          {SERVICES.filter((s) => !s.addOn).map((s) => (
-            <label key={s.id} className="choice">
-              <input type="radio" name={`${uid}-service`} value={s.id} checked={service === s.id} onChange={() => setService(s.id)} />
-              <span className="choice-body">
-                <span className="choice-title">{s.name}</span>
-                <span className="choice-meta">
-                  {s.duration} · {s.price}
-                </span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      )}
-
-      {step === 1 && (
-        <fieldset className="choice-list">
-          <legend className="sr-only">Artist</legend>
-          {[...ARTISTS, ANYONE].map((a) => (
-            <label key={a.id} className="choice">
-              <input type="radio" name={`${uid}-artist`} value={a.id} checked={artist === a.id} onChange={() => setArtist(a.id)} />
-              <span className="choice-body">
-                <span className="choice-title">{a.name}</span>
-                <span className="choice-meta">{a.role}</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      )}
-
-      {step === 2 && (
-        <div className="daytime">
-          <fieldset>
-            <legend className="field-label">Day</legend>
-            <div className="day-grid">
-              {days.map((d) => (
-                <label key={d.key} className="day-chip">
-                  <input
-                    type="radio"
-                    name={`${uid}-day`}
-                    value={d.key}
-                    checked={dayKey === d.key}
-                    onChange={() => {
-                      setDayKey(d.key);
-                      setTime("");
-                    }}
-                    className="sr-only"
-                  />
-                  <span className="day-chip-body">
-                    <span className="day-chip-wd">{d.weekday}</span>
-                    <span className="day-chip-date">{d.date}</span>
+        {step === 0 && (
+          <fieldset className="choice-list">
+            <legend className="sr-only">Service</legend>
+            {SERVICES.filter((s) => !s.addOn).map((s) => (
+              <label key={s.id} className="choice">
+                <input type="radio" name={`${uid}-service`} value={s.id} checked={service === s.id} onChange={() => setService(s.id)} />
+                <span className="choice-body">
+                  <span className="choice-title">{s.name}</span>
+                  <span className="choice-meta">
+                    {s.duration} · {s.price}
                   </span>
-                </label>
-              ))}
-            </div>
+                </span>
+              </label>
+            ))}
           </fieldset>
-          {day && (
+        )}
+
+        {step === 1 && (
+          <fieldset className="choice-list">
+            <legend className="sr-only">Artist</legend>
+            {[...ARTISTS, ANYONE].map((a) => (
+              <label key={a.id} className="choice">
+                <input type="radio" name={`${uid}-artist`} value={a.id} checked={artist === a.id} onChange={() => setArtist(a.id)} />
+                <span className="choice-body">
+                  <span className="choice-title">{a.name}</span>
+                  <span className="choice-meta">{a.role}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+
+        {step === 2 && (
+          <div className="daytime">
             <fieldset>
-              <legend className="field-label">Time on {day.long}</legend>
-              <div className="slot-grid">
-                {SLOTS.filter((_, i) => !day.saturday || i < 5).map((slot, i) => {
-                  const taken = slotTaken(day, i);
-                  return (
-                    <label key={slot} className="slot-chip" data-taken={taken || undefined}>
-                      <input
-                        type="radio"
-                        name={`${uid}-time`}
-                        value={slot}
-                        checked={time === slot}
-                        disabled={taken}
-                        onChange={() => setTime(slot)}
-                        className="sr-only"
-                      />
-                      <span>
-                        {slot}
-                        {taken && <span className="sr-only"> (taken)</span>}
-                      </span>
-                    </label>
-                  );
-                })}
+              <legend className="field-label">Day</legend>
+              <div className="day-grid">
+                {days.map((d) => (
+                  <label key={d.key} className="day-chip">
+                    <input
+                      type="radio"
+                      name={`${uid}-day`}
+                      value={d.key}
+                      checked={dayKey === d.key}
+                      onChange={() => {
+                        setDayKey(d.key);
+                        setTime("");
+                      }}
+                      className="sr-only"
+                    />
+                    <span className="day-chip-body">
+                      <span className="day-chip-wd">{d.weekday}</span>
+                      <span className="day-chip-date">{d.date}</span>
+                    </span>
+                  </label>
+                ))}
               </div>
             </fieldset>
-          )}
-        </div>
-      )}
+            {day && (
+              <fieldset>
+                <legend className="field-label">Time on {day.long}</legend>
+                <div className="slot-grid">
+                  {SLOTS.filter((_, i) => !day.saturday || i < 5).map((slot, i) => {
+                    const taken = slotTaken(day, i);
+                    return (
+                      <label key={slot} className="slot-chip" data-taken={taken || undefined}>
+                        <input
+                          type="radio"
+                          name={`${uid}-time`}
+                          value={slot}
+                          checked={time === slot}
+                          disabled={taken}
+                          onChange={() => setTime(slot)}
+                          className="sr-only"
+                        />
+                        <span>
+                          {slot}
+                          {taken && <span className="sr-only"> (taken)</span>}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+          </div>
+        )}
 
-      {step === 3 && (
-        <div className="fields">
-          <div className="field">
-            <label htmlFor={`${uid}-name`} className="field-label">
-              Name
-            </label>
-            <input
-              id={`${uid}-name`}
-              className="input"
-              autoComplete="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+        {step === 3 && (
+          <div className="fields">
+            <div className="field">
+              <label htmlFor={`${uid}-name`} className="field-label">
+                Name
+              </label>
+              <input
+                id={`${uid}-name`}
+                className="input"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={`${uid}-contact`} className="field-label">
+                Phone or email
+              </label>
+              <input
+                id={`${uid}-contact`}
+                className="input"
+                autoComplete="email"
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={`${uid}-notes`} className="field-label">
+                Notes <span className="field-optional">(optional)</span>
+              </label>
+              <textarea
+                id={`${uid}-notes`}
+                className="input"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+            <div className="booking-summary">
+              <p>
+                {svc?.name} · {art?.name} · {day?.long} at {time}
+              </p>
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor={`${uid}-contact`} className="field-label">
-              Phone or email
-            </label>
-            <input
-              id={`${uid}-contact`}
-              className="input"
-              autoComplete="email"
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor={`${uid}-notes`} className="field-label">
-              Notes <span className="field-optional">(optional)</span>
-            </label>
-            <textarea
-              id={`${uid}-notes`}
-              className="input"
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-          <div className="booking-summary">
-            <p>
-              {svc?.name} · {art?.name} · {day?.long} at {time}
-            </p>
-          </div>
-        </div>
-      )}
+        )}
+
+      </div>
 
       <p id={errorId} className="booking-error" role="alert">
         {error}

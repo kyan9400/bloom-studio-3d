@@ -62,8 +62,11 @@ export default function Poster() {
         />
         <rect x="190" y="330" width="12" height="170" rx="6" fill="#ffffff" fillOpacity="0.55" />
         <rect x="282" y="350" width="5" height="120" rx="2.5" fill="#ffffff" fillOpacity="0.35" />
-        <rect x="211" y="118" width="58" height="140" rx="16" fill="url(#pg-cap)" />
-        <rect x="222" y="132" width="7" height="110" rx="3.5" fill="#ffffff" fillOpacity="0.22" />
+        {/* the cap lifts in the uncapped state (.stage[data-uncap]), like the 3D scroll moment */}
+        <g className="poster-cap">
+          <rect x="211" y="118" width="58" height="140" rx="16" fill="url(#pg-cap)" />
+          <rect x="222" y="132" width="7" height="110" rx="3.5" fill="#ffffff" fillOpacity="0.22" />
+        </g>
       </g>
 
       {/* swatch fan */}

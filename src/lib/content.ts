@@ -107,3 +107,27 @@ export const FAQ = [
     a: "It's a cosmetic top coat with a fine shimmer pigment, cured like any gel.",
   },
 ];
+
+export type Review = { quote: string; name: string; service: string; shadeId: string };
+
+/** Concept-project reviews (the footnote on the page says so). */
+export const REVIEWS: Review[] = [
+  {
+    quote: "I walked in with a screenshot and walked out with the exact shade — they mixed it in front of me.",
+    name: "Dana",
+    service: "Signature Gel",
+    shadeId: "fig",
+  },
+  {
+    quote: "Three weeks and not a single chip. And nobody rushed me once.",
+    name: "Leo",
+    service: "BIAB Overlay",
+    shadeId: "bare",
+  },
+  {
+    quote: "The aurora finish is ridiculous in daylight. Strangers ask about it.",
+    name: "Priya",
+    service: "Aurora & Chrome",
+    shadeId: "tidepool",
+  },
+];

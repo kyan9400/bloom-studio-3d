@@ -20,6 +20,12 @@ let state: StudioState = {
 
 const listeners = new Set<() => void>();
 
+/* Two tiny channels from the page to the 3D canvas (no React re-render): turn nudges and scroll progress. */
+type Sink = (value: number) => void;
+let spinSink: Sink | null = null;
+let momentSink: Sink | null = null;
+let momentNow = 0;
+
 export const studioStore = {
   get: () => state,
   set(patch: Partial<StudioState>) {
@@ -30,7 +36,27 @@ export const studioStore = {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },
+  /** The live canvas registers here for the keyboard "Turn left / right" buttons. */
+  spin(sink: Sink | null) {
+    spinSink = sink;
+  },
+  /** The live canvas registers here for the "Uncap & paint" progress (it gets the current value at once). */
+  moment(sink: Sink | null) {
+    momentSink = sink;
+    sink?.(momentNow);
+  },
 };
+
+/** Turn the bottle by a step (radians). No-op until the 3D is live. */
+export function nudgeSpin(step: number) {
+  spinSink?.(step);
+}
+
+/** Scroll moment progress, 0..1. */
+export function setMoment(u: number) {
+  momentNow = u;
+  momentSink?.(u);
+}
 
 const initial = state;
 
