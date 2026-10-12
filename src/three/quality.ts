@@ -21,6 +21,9 @@ export type TierSettings = {
   label: boolean; // frosted label band on the glass
   floorGlow: boolean; // additive "light through coloured glass" glow
   refraction: boolean; // env-refraction term in the glass shader
+  petals: number; // floating petals around the set (one instanced draw)
+  swirl2: boolean; // second liquid ribbon
+  ribbonAlong: number; // ribbon samples along the curve
 };
 
 export const TIERS: Record<Tier, TierSettings> = {
@@ -36,6 +39,9 @@ export const TIERS: Record<Tier, TierSettings> = {
     label: true,
     floorGlow: true,
     refraction: true,
+    petals: 34,
+    swirl2: true,
+    ribbonAlong: 220,
   },
   medium: {
     dprCap: 1.5,
@@ -49,6 +55,9 @@ export const TIERS: Record<Tier, TierSettings> = {
     label: true,
     floorGlow: false,
     refraction: true,
+    petals: 22,
+    swirl2: true,
+    ribbonAlong: 150,
   },
   low: {
     dprCap: 1,
@@ -62,6 +71,9 @@ export const TIERS: Record<Tier, TierSettings> = {
     label: true,
     floorGlow: false,
     refraction: false,
+    petals: 12,
+    swirl2: false,
+    ribbonAlong: 90,
   },
 };
 

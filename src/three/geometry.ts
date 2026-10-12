@@ -322,3 +322,151 @@ export function swatchGeometry(around: number, along: number) {
   g.setIndex(indices);
   return g;
 }
+
+/* ---------------------------------------------------------------- studio set */
+
+/** Two-step round plinth (top face at y 0), soft rounded edges. */
+export function plinthGeometry(segments: number) {
+  const pts = profile(
+    [
+      [1.94, -0.78],
+      [1.94, -0.42, 0.05],
+      [1.62, -0.42, 0.03],
+      [1.62, 0, 0.06],
+      [0, 0],
+    ],
+    90,
+  );
+  return new LatheGeometry(pts, segments);
+}
+
+/**
+ * A ribbon of liquid lacquer swept along a spline: an elliptical section (width x thickness) carried by a
+ * parallel-transport frame, twisted along the way and tapered at both ends. aCenter + aT let the vertex shader
+ * "grow" the ribbon from its start (the section collapses onto the centre line past the growth front).
+ */
+export function ribbonGeometry(
+  ctrl: [number, number, number][],
+  o: { width: number; thick: number; twist: number; along: number; around: number; start?: number; end?: number },
+) {
+  const curve = new CatmullRomCurve3(
+    ctrl.map(([x, y, z]) => new Vector3(x, y, z)),
+    false,
+    "centripetal",
+  );
+  const n = o.along;
+  const around = o.around;
+  const startTaper = o.start ?? 0.12;
+  const endTaper = o.end ?? 0.18;
+  const pts = curve.getSpacedPoints(n);
+  const tangents = pts.map((_, i) => curve.getTangentAt(i / n).normalize());
+  // initial normal: world up projected off the first tangent
+  let N = new Vector3(0, 1, 0);
+  N.addScaledVector(tangents[0], -N.dot(tangents[0]));
+  if (N.lengthSq() < 1e-4) N.set(1, 0, 0);
+  N.normalize();
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const centers: number[] = [];
+  const ts: number[] = [];
+  const indices: number[] = [];
+  const B = new Vector3();
+  const axisA = new Vector3();
+  const axisB = new Vector3();
+  const p = new Vector3();
+  const nn = new Vector3();
+  for (let i = 0; i <= n; i++) {
+    const T = tangents[i];
+    if (i > 0) {
+      // parallel transport: remove the tangent component, renormalise
+      N.addScaledVector(T, -N.dot(T)).normalize();
+    }
+    B.crossVectors(T, N).normalize();
+    const t = i / n;
+    const tw = o.twist * t * Math.PI * 2;
+    axisA.copy(B).multiplyScalar(Math.cos(tw)).addScaledVector(N, Math.sin(tw));
+    axisB.copy(N).multiplyScalar(Math.cos(tw)).addScaledVector(B, -Math.sin(tw));
+    const taper = Math.min(1, Math.sqrt(Math.min(1, t / startTaper)), Math.sqrt(Math.min(1, (1 - t) / endTaper)));
+    const w = Math.max(0.002, (o.width / 2) * taper);
+    const th = Math.max(0.002, (o.thick / 2) * Math.max(0.35, taper));
+    for (let j = 0; j <= around; j++) {
+      const a = (j / around) * Math.PI * 2;
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      p.copy(pts[i]).addScaledVector(axisA, c * w).addScaledVector(axisB, s * th);
+      nn.copy(axisA).multiplyScalar(c / w).addScaledVector(axisB, s / th).normalize();
+      positions.push(p.x, p.y, p.z);
+      normals.push(nn.x, nn.y, nn.z);
+      centers.push(pts[i].x, pts[i].y, pts[i].z);
+      ts.push(t);
+    }
+  }
+  const row = around + 1;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < around; j++) {
+      const a = i * row + j;
+      const b = a + 1;
+      const c = a + row;
+      const d = c + 1;
+      indices.push(a, b, d, a, d, c);
+    }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  g.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+  g.setAttribute("aCenter", new Float32BufferAttribute(centers, 3));
+  g.setAttribute("aT", new Float32BufferAttribute(ts, 1));
+  g.setIndex(indices);
+  return g;
+}
+
+/** One cupped petal (about 0.22 long), base at the origin, pointing +y. */
+export function petalGeometry() {
+  const cols = 6;
+  const rows = 8;
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  const L = 0.22;
+  const W = 0.15;
+  const f = (u: number, s: number, out: Vector3) => {
+    // u -1..1 across, s 0..1 along
+    const width = (W / 2) * Math.pow(Math.sin(Math.PI * Math.min(1, s * 0.92 + 0.08)), 0.7) * (0.55 + 0.45 * s);
+    const x = u * width;
+    const y = s * L;
+    const z = 0.05 * u * u + 0.035 * Math.sin(Math.PI * s) - 0.03 * s * s;
+    return out.set(x, y, z);
+  };
+  const p = new Vector3();
+  const pu = new Vector3();
+  const ps = new Vector3();
+  for (let r = 0; r <= rows; r++) {
+    const s = r / rows;
+    for (let c = 0; c <= cols; c++) {
+      const u = (c / cols) * 2 - 1;
+      f(u, s, p);
+      f(Math.min(1, u + 0.01), s, pu).sub(f(Math.max(-1, u - 0.01), s, ps));
+      const du = pu.clone();
+      f(u, Math.min(1, s + 0.01), pu).sub(f(u, Math.max(0, s - 0.01), ps));
+      const n = du.cross(pu).normalize();
+      if (!Number.isFinite(n.x)) n.set(0, 0, 1);
+      positions.push(p.x, p.y, p.z);
+      normals.push(n.x, n.y, n.z);
+      uvs.push(c / cols, s);
+    }
+  }
+  const row = cols + 1;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const a = r * row + c;
+      indices.push(a, a + 1, a + row + 1, a, a + row + 1, a + row);
+    }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  g.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+  g.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  g.setIndex(indices);
+  return g;
+}

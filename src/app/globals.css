@@ -529,8 +529,8 @@
   gap: 24px;
   grid-template-areas:
     "head"
-    "copy"
     "stage"
+    "copy"
     "picker"
     "ritual";
 }
@@ -620,18 +620,25 @@
     min-height: 190svh;
   }
   .hero-grid {
-    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
     grid-template-rows: auto auto auto 1fr;
-    column-gap: 72px;
+    column-gap: 56px;
     row-gap: 32px;
     grid-template-areas:
-      "head head"
+      "head stage"
       "copy stage"
       "picker stage"
       "ritual stage";
   }
   .hero-head {
     padding-top: 24px;
+  }
+  .hero .display {
+    font-size: clamp(56px, 4.4vw + 12px, 92px);
+    margin-bottom: 0;
+  }
+  .hero .display em {
+    padding-left: 0.4em;
   }
   .ritual {
     gap: 24vh;
@@ -647,13 +654,16 @@
 @media (min-width: 960px) {
   .stage-plate {
     position: sticky;
-    top: calc(var(--header-h) + 24px);
+    top: calc(var(--header-h) + 16px);
+  }
+  .hero-stage {
+    margin-right: calc(var(--gutter) * -0.5);
   }
 }
 
 .stage {
   position: relative;
-  aspect-ratio: 1 / 1.02;
+  aspect-ratio: 1 / 1.12;
   max-height: 72svh;
   min-height: 320px;
   width: 100%;
@@ -670,8 +680,8 @@
   .stage {
     aspect-ratio: auto;
     max-height: none;
-    min-height: 480px;
-    height: min(calc(100svh - var(--header-h) - 140px), 780px);
+    min-height: 520px;
+    height: min(calc(100svh - var(--header-h) - 96px), 900px);
   }
 }
 
@@ -681,12 +691,15 @@
   inset: 0;
   z-index: 0;
   background: radial-gradient(70% 60% at 50% 42%, #fffaf6 0%, #f7e8e2 55%, #efd8d1 100%);
-  background: radial-gradient(
-    70% 60% at 50% 42%,
-    #fffaf6 0%,
-    color-mix(in oklab, var(--tint) 14%, #fbf6f1) 55%,
-    color-mix(in oklab, var(--tint) 20%, #efd8d1) 100%
-  );
+  background:
+    radial-gradient(48% 38% at 34% 30%, rgb(255 253 250 / 0.95), transparent 70%),
+    radial-gradient(90% 46% at 50% 100%, color-mix(in oklab, var(--tint) 30%, #e6c5c0) 0%, transparent 72%),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--tint) 10%, #fbf3ef) 0%,
+      color-mix(in oklab, var(--tint) 18%, #f3e0da) 58%,
+      color-mix(in oklab, var(--tint) 26%, #ead0ca) 100%
+    );
 }
 
 .stage-tint[data-fade] {

@@ -39,6 +39,17 @@ magnetic primary buttons and a shade-coloured cursor dot (decoration only; the n
 **What**: a thick-walled glass bottle with a ribbed cap, a brushed-metal collar and a real brush inside, the polish,
 and a fan of 5–7 almond nail swatches threaded on a split key ring. All geometry is procedural.
 
+**Campaign look (redesign)**: the stage now sits beside the headline on desktop (full-height right column, sticky)
+and straight under it on phones, so the bottle is the first thing seen. The set is a two-step glazed ceramic plinth
+(shade-tinted, soft floor shadow) in front of a lit pastel cyclorama gradient. Ribbons of liquid lacquer, swept
+elliptical sections on a parallel-transport frame (`ribbonGeometry`), use the same thin-film polish shader, so they
+recolour with the picker: a big twisted swirl behind the bottle and a second loop on the right (medium/high) pour in
+as the lights come up. 12/22/34 instanced petals (low/medium/high) drift around the set. The studio light gained a
+rim strip behind the set. Scroll story (camera keys in `scene.ts`): hero = low three-quarter on the closed bottle;
+uncap = camera rises to the neck as the brush lifts out; paint = camera swings right while the brush lays a stroke
+of lacquer across the plinth (`uGrow`) and the swatches paint; bloom = camera pulls back while the petals open
+outward and take the pigment. The high-tier floor glow no longer writes alpha, which used to show as a dark square.
+
 **Geometry** (`src/three/geometry.ts`):
 - Lathe profiles are built by `profile()`: control points with a fillet on every corner (≥ 0.012), a centripetal
   Catmull-Rom spline through them, resampled evenly by arc length (48 / 72 / 96 samples per 1.6 units by tier).

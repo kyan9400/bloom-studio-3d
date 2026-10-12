@@ -17,6 +17,7 @@ uniform vec2 uLights;
 uniform float uSweep;
 const vec3 KEY_DIR = vec3(-0.7533, 0.2216, 0.4874);
 const vec3 WARM_DIR = vec3(0.9480, 0.1497, 0.2495);
+const vec3 RIM_DIR = vec3(0.3511, 0.3511, -0.8682);
 
 vec3 studioEnv(vec3 r) {
   float y = r.y;
@@ -31,6 +32,9 @@ vec3 studioEnv(vec3 r) {
   col += vec3(1.0, 0.98, 0.97) * b1 * 2.6 * uLights.x;
   col += vec3(1.0, 0.82, 0.80) * b2 * 1.5 * uLights.y;
   col += vec3(1.0) * top * 1.4 * uLights.x;
+  // rim strip behind the set: bright edges on glass, lacquer and petals
+  float b3 = smoothstep(0.84, 0.97, dot(r, RIM_DIR)) * (1.0 - smoothstep(0.55, 0.9, abs(r.y - 0.3)));
+  col += vec3(1.0, 0.9, 0.95) * b3 * 2.2 * uLights.y;
   col += vec3(0.35, 0.16, 0.18) * (1.0 - smoothstep(-0.6, 0.0, y)) * amb;
   // light sweep: a narrow vertical box that crosses from left to right
   if (uSweep > 0.0 && uSweep < 1.0) {
@@ -114,6 +118,11 @@ export const filmVertex = /* glsl */ `
 #ifdef USE_INSTANCING
 attribute float aSeed;
 #endif
+#ifdef RIBBON
+attribute vec3 aCenter;
+attribute float aT;
+uniform float uGrow;
+#endif
 varying vec3 vNormalW;
 varying vec3 vNormalO;
 varying vec3 vTanW;
@@ -126,6 +135,13 @@ void main() {
   vec3 n = normal;
   vec3 t = vec3(-position.z, 0.0, position.x) + vec3(1e-5, 0.0, 0.0);
   vSeed = 0.0;
+  #ifdef RIBBON
+    // grow from the start: past the front the section collapses onto the centre line (a rounded tip)
+    float k = clamp((uGrow * 1.06 - aT) * 16.0, 0.0, 1.0);
+    k = sqrt(k);
+    p.xyz = aCenter + (position - aCenter) * k;
+    vSeed = aT * 0.6;
+  #endif
   #ifdef USE_INSTANCING
     p = instanceMatrix * p;
     n = mat3(instanceMatrix) * n;
@@ -432,6 +448,102 @@ varying vec2 vUv;
 void main() {
   float d = length((vUv - 0.5) * vec2(1.0, 1.4));
   float g = pow(1.0 - smoothstep(0.0, 0.5, d), 2.0);
-  gl_FragColor = vec4(uBase * g * uStrength, 1.0);
+  gl_FragColor = vec4(uBase * g * uStrength, 0.0);
+}
+`;
+
+/** Glazed ceramic plinth: soft pastel body tinted a little by the shade, a satin glaze coat. */
+export const plinthFragment = /* glsl */ `
+uniform vec3 uBase;
+uniform vec3 uClay;
+varying vec3 vNormalW;
+varying vec3 vPosW;
+varying vec3 vPosO;
+${ENV}
+${BRDF}
+void main() {
+  vec3 N = normalize(vNormalW);
+  vec3 V = normalize(cameraPosition - vPosW);
+  if (dot(N, V) < 0.0) N = -N;
+  float NdV = clamp(dot(N, V), 0.0, 1.0);
+  vec3 clay = mix(uClay, uBase, 0.16);
+  // the top face darkens toward the centre a touch (the set's own occlusion), the riser toward its foot
+  float top = step(0.9, N.y);
+  float r = length(vPosO.xz);
+  float occl = 1.0 - 0.35 * (1.0 - smoothstep(-0.42, -0.05, vPosO.y)) * (1.0 - top);
+  occl *= 1.0 - 0.45 * (1.0 - smoothstep(-0.78, -0.42, vPosO.y));
+  vec3 col = clay * irradiance(N) * 1.12 * occl;
+  float F = 0.03 + 0.97 * pow(1.0 - NdV, 5.0);
+  col += studioEnv(reflect(-V, N)) * F * 0.55;
+  col += vec3(1.0, 0.97, 0.95) * ggx(N, V, KEY_DIR, 0.3) * 0.12 * uLights.x;
+  // coloured light pooling on the top face from the polish
+  col += uBase * top * (1.0 - smoothstep(0.2, 1.5, r)) * 0.06;
+  gl_FragColor = vec4(col, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+
+/** Soft shadow the plinth throws on the (CSS) studio floor. */
+export const floorFragment = /* glsl */ `
+uniform vec3 uColor;
+varying vec2 vUv;
+void main() {
+  float d = length((vUv - 0.5) * vec2(1.0, 1.0)) * 2.0;
+  float a = (1.0 - smoothstep(0.42, 1.0, d)) * 0.34 + (1.0 - smoothstep(0.38, 0.52, d)) * 0.25;
+  gl_FragColor = vec4(uColor, a);
+}
+`;
+
+/** Floating petals: instanced, translucent-looking (back light + sheen), coloured toward the shade. */
+export const petalVertex = /* glsl */ `
+attribute float aSeed;
+varying vec3 vNormalW;
+varying vec3 vPosW;
+varying vec2 vUv;
+varying float vSeed;
+void main() {
+  vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
+  vPosW = world.xyz;
+  vNormalW = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
+  vUv = uv;
+  vSeed = aSeed;
+  gl_Position = projectionMatrix * viewMatrix * world;
+}
+`;
+
+export const petalFragment = /* glsl */ `
+uniform vec3 uBase;
+uniform vec3 uBlush;
+uniform float uBloom;
+varying vec3 vNormalW;
+varying vec3 vPosW;
+varying vec2 vUv;
+varying float vSeed;
+${ENV}
+void main() {
+  vec3 N = normalize(vNormalW);
+  vec3 V = normalize(cameraPosition - vPosW);
+  float facing = dot(N, V);
+  if (facing < 0.0) N = -N;
+  float NdV = abs(facing);
+  // petals start blush and take the pigment as the colours bloom (scroll), each at its own pace
+  float take = clamp(uBloom * 1.4 - vSeed * 0.4, 0.0, 1.0);
+  vec3 tint = mix(uBlush, mix(uBlush, uBase, 0.75), take * 0.85 + 0.15);
+  // deeper at the base, paler at the tip, a faint centre vein
+  tint *= mix(0.78, 1.08, smoothstep(0.0, 0.8, vUv.y));
+  tint = mix(tint, tint * 0.86, (1.0 - smoothstep(0.0, 0.06, abs(vUv.x - 0.5))) * 0.6);
+  vec3 col = tint * irradiance(N) * 1.05;
+  // light through the petal from the key and rim
+  float back = pow(clamp(dot(-V, KEY_DIR) * 0.5 + 0.5, 0.0, 1.0), 2.0);
+  col += tint * back * 0.35 * uLights.x;
+  // velvet sheen at grazing angles
+  col += vec3(1.0, 0.94, 0.95) * pow(1.0 - NdV, 3.0) * 0.35;
+  col += studioEnv(reflect(-V, N)) * 0.04;
+  float edge = smoothstep(0.0, 0.08, vUv.y) * (1.0 - smoothstep(0.9, 1.0, vUv.y));
+  gl_FragColor = vec4(col, 1.0);
+  if (edge < 0.02) discard;
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
 }
 `;

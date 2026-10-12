@@ -28,7 +28,10 @@ import {
   capGeometry,
   collarGeometry,
   glassGeometry,
+  petalGeometry,
+  plinthGeometry,
   polishGeometry,
+  ribbonGeometry,
   splitRingGeometry,
   stemGeometry,
   swatchGeometry,
@@ -36,6 +39,10 @@ import {
 import {
   filmFragment,
   filmVertex,
+  floorFragment,
+  petalFragment,
+  petalVertex,
+  plinthFragment,
   glassFragment,
   glassVertex,
   glowFragment,
@@ -70,6 +77,7 @@ type FilmUniforms = EnvUniforms & {
   uSwirlScale: { value: number };
   uSeedShade: { value: number };
   uPaint: { value: number };
+  uGrow: { value: number };
 };
 
 type Look = FinishUniforms;
@@ -80,7 +88,46 @@ const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
 const seg = (u: number, a: number, b: number) => ease(clamp01((u - a) / (b - a)));
 
 const TWEEN_SECONDS = 0.75;
-const TAN_31 = Math.tan((31 / 2) * (Math.PI / 180));
+const INTRO_SECONDS = 2.2;
+
+/*
+  Camera chapters for the scroll story, one row per key: u, distance, look x, look y, orbit angle,
+  elevation (radians), fov. Hero = low three-quarter on the bottle; uncap = close on the neck;
+  paint = swing right over the stroke and the fan; bloom = pulled back over the whole set.
+*/
+const CAM_KEYS = [
+  [0.0, 7.4, -0.26, 1.12, -0.2, 0.07, 30],
+  [0.3, 6.9, -0.34, 2.0, 0.08, 0.15, 28],
+  [0.66, 6.6, 0.2, 0.78, 0.55, 0.44, 28],
+  [1.0, 8.6, 0.06, 1.0, 0.24, 0.3, 30],
+] as const;
+const CAM = new Float32Array(6);
+
+// liquid lacquer: a big swirl behind the bottle, a second loop on the right, and the brush stroke on the plinth
+const SWIRL: [number, number, number][] = [
+  [-1.5, 0.04, 0.62],
+  [-1.72, 0.72, -0.12],
+  [-1.32, 1.58, -0.88],
+  [-0.3, 2.32, -1.12],
+  [0.78, 2.52, -0.72],
+  [1.42, 2.08, -0.05],
+  [1.22, 1.52, 0.5],
+  [0.62, 1.42, 0.82],
+];
+const SWIRL2: [number, number, number][] = [
+  [0.35, 0.04, -1.05],
+  [1.3, 0.42, -1.0],
+  [1.9, 0.98, -0.38],
+  [1.85, 1.42, 0.42],
+  [1.45, 1.22, 0.95],
+];
+const STROKE: [number, number, number][] = [
+  [-1.02, 0.013, 0.98],
+  [-0.48, 0.013, 1.24],
+  [0.2, 0.013, 1.1],
+  [0.84, 0.013, 1.16],
+  [1.24, 0.013, 0.86],
+];
 
 // swatch fan on its split ring
 const RING_R = 0.15;
@@ -107,6 +154,11 @@ type Geometries = {
   glass: BufferGeometry;
   swatch: BufferGeometry;
   ring: BufferGeometry;
+  plinth: BufferGeometry;
+  swirl: BufferGeometry;
+  swirl2: BufferGeometry | null;
+  stroke: BufferGeometry;
+  petal: BufferGeometry;
 };
 
 /** Procedural geometry, a piece or two per task. */
@@ -125,7 +177,24 @@ async function buildGeometries(t: TierSettings): Promise<Geometries> {
   const swatch = swatchGeometry(seg >= 64 ? 40 : 28, seg >= 64 ? 48 : 30);
   const ring = splitRingGeometry(RING_R);
   await yieldToMain();
-  return { polish, cap, stem, bristles, collar, glass, swatch, ring };
+  const plinth = plinthGeometry(seg);
+  const around = seg >= 64 ? 14 : 10;
+  const swirl = ribbonGeometry(SWIRL, { width: 0.34, thick: 0.05, twist: 1.3, along: t.ribbonAlong, around });
+  const swirl2 = t.swirl2
+    ? ribbonGeometry(SWIRL2, { width: 0.2, thick: 0.035, twist: -1.1, along: Math.round(t.ribbonAlong * 0.6), around })
+    : null;
+  const stroke = ribbonGeometry(STROKE, {
+    width: 0.24,
+    thick: 0.024,
+    twist: 0,
+    along: Math.round(t.ribbonAlong * 0.6),
+    around,
+    start: 0.05,
+    end: 0.35,
+  });
+  const petal = petalGeometry();
+  await yieldToMain();
+  return { polish, cap, stem, bristles, collar, glass, swatch, ring, plinth, swirl, swirl2, stroke, petal };
 }
 
 export class BloomScene {
@@ -142,6 +211,12 @@ export class BloomScene {
   private readonly polish: FilmUniforms;
   private readonly swatches: FilmUniforms;
   private readonly lacquers: FilmUniforms[];
+  private readonly ribbons: FilmUniforms[] = [];
+  private readonly stroke: FilmUniforms;
+  private petals: InstancedMesh | null = null;
+  private readonly petalData: Float32Array;
+  private readonly petalUniforms: { uBloom: { value: number } };
+  private bloom = 0;
   private readonly shadow: { uBottle: { value: Vector4 }; uFan: { value: Vector4 }; uSpread: { value: number } };
   private readonly sparkleOn: boolean;
   private readonly swayOn: boolean;
@@ -195,6 +270,7 @@ export class BloomScene {
       uSwirlScale: { value: swirl },
       uSeedShade: { value: seedShade },
       uPaint: { value: 0 },
+      uGrow: { value: 1 },
     };
     const material = new ShaderMaterial({
       vertexShader: filmVertex,
@@ -211,7 +287,7 @@ export class BloomScene {
     this.sparkleOn = settings.sparkle;
     this.swayOn = settings.sway;
     this.count = settings.swatches;
-    Object.values(geos).forEach((g) => this.geometries.push(g));
+    Object.values(geos).forEach((g) => g && this.geometries.push(g));
 
     this.root.add(this.spin);
 
@@ -351,7 +427,94 @@ export class BloomScene {
       bottle.add(glowMesh);
     }
 
-    this.lacquers = [this.polish, this.swatches];
+    // --- studio set: glazed plinth + its soft shadow on the floor ---------------
+    const plinthMat = new ShaderMaterial({
+      vertexShader: glassVertex,
+      fragmentShader: plinthFragment,
+      uniforms: { ...this.env, uBase: this.polish.uBase, uClay: { value: new Color("#f4dfd8") } },
+    });
+    this.materials.push(plinthMat);
+    const plinth = new Mesh(geos.plinth, plinthMat);
+    plinth.renderOrder = -1;
+    this.root.add(plinth);
+    const floorMat = new ShaderMaterial({
+      vertexShader: planeVertex,
+      fragmentShader: floorFragment,
+      uniforms: { uColor: { value: new Color("#5a2f45") } },
+      transparent: true,
+      depthWrite: false,
+    });
+    this.materials.push(floorMat);
+    const floor = new Mesh(this.track(new PlaneGeometry(6.4, 6.4)), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.779;
+    floor.renderOrder = -2;
+    this.root.add(floor);
+
+    // --- liquid lacquer ribbons (same pigment as the bottle) -----------------
+    const ribbonMesh = (geo: BufferGeometry, swirl: number) => {
+      const r = this.filmMaterial(swirl, 0.6, DoubleSide, { RIBBON: "" });
+      this.ribbons.push(r.uniforms);
+      const m = new Mesh(geo, r.material);
+      m.frustumCulled = false;
+      this.spin.add(m);
+      return r.uniforms;
+    };
+    ribbonMesh(geos.swirl, 1.6);
+    if (geos.swirl2) ribbonMesh(geos.swirl2, 2.2);
+    this.stroke = ribbonMesh(geos.stroke, 3.0);
+    this.stroke.uGrow.value = 0;
+
+    // --- floating petals (one instanced draw) --------------------------------
+    const pc = settings.petals;
+    this.petalUniforms = { uBloom: { value: 0 } };
+    this.petalData = new Float32Array(pc * 10);
+    if (pc > 0) {
+      const petalMat = new ShaderMaterial({
+        vertexShader: petalVertex,
+        fragmentShader: petalFragment,
+        uniforms: {
+          ...this.env,
+          uBase: this.polish.uBase,
+          uBlush: { value: new Color("#f6c9d3") },
+          uBloom: this.petalUniforms.uBloom,
+        },
+        side: DoubleSide,
+      });
+      this.materials.push(petalMat);
+      let seed = 7;
+      const rnd = () => {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+      };
+      const seeds = new Float32Array(pc);
+      for (let i = 0; i < pc; i++) {
+        const o = i * 10;
+        // golden-angle spread around the set, kept out of the bottle's front window
+        let a = i * 2.39996 + rnd() * 0.4;
+        if (Math.cos(a) > 0.55 && Math.abs(Math.sin(a)) < 0.6) a += (Math.sin(a) < 0 ? -1 : 1) * 0.9;
+        const rad = 1.9 + rnd() * 1.1;
+        this.petalData[o] = Math.sin(a) * rad;
+        this.petalData[o + 1] = -0.1 + rnd() * 3.3;
+        this.petalData[o + 2] = Math.cos(a) * rad * 0.8 - 0.2;
+        this.petalData[o + 3] = rnd() * Math.PI * 2; // rot x
+        this.petalData[o + 4] = rnd() * Math.PI * 2; // rot y
+        this.petalData[o + 5] = rnd() * Math.PI * 2; // rot z
+        this.petalData[o + 6] = 0.25 + rnd() * 0.5; // speed
+        this.petalData[o + 7] = rnd() * Math.PI * 2; // phase
+        this.petalData[o + 8] = 0.85 + rnd() * 0.75; // scale
+        this.petalData[o + 9] = rnd(); // bloom delay
+        seeds[i] = rnd();
+      }
+      geos.petal.setAttribute("aSeed", new InstancedBufferAttribute(seeds, 1));
+      const petals = new InstancedMesh(geos.petal, petalMat, pc);
+      petals.frustumCulled = false;
+      this.petals = petals;
+      this.root.add(petals);
+      this.layoutPetals();
+    }
+
+    this.lacquers = [this.polish, this.swatches, ...this.ribbons];
     this.pose(0);
   }
 
@@ -380,6 +543,31 @@ export class BloomScene {
     this.fan.instanceMatrix.needsUpdate = true;
   }
 
+  /** Petals drift on their own slow orbits; the scroll "bloom" opens them outward and up. */
+  private layoutPetals() {
+    const petals = this.petals;
+    if (!petals) return;
+    const d = this.petalData;
+    const t = this.time;
+    for (let i = 0; i < petals.count; i++) {
+      const o = i * 10;
+      const eb = ease(clamp01(this.bloom * 1.5 - d[o + 9] * 0.5));
+      const sp = d[o + 6];
+      const ph = d[o + 7];
+      const spread = 1 + eb * 0.32;
+      this.dummy.position.set(
+        d[o] * spread + Math.sin(t * sp * 0.6 + ph) * 0.06,
+        d[o + 1] + Math.sin(t * sp + ph) * 0.09 + eb * 0.35,
+        d[o + 2] * spread + Math.cos(t * sp * 0.5 + ph) * 0.06,
+      );
+      this.dummy.rotation.set(d[o + 3] + t * sp * 0.35, d[o + 4] + t * sp * 0.25 + eb * 1.4, d[o + 5]);
+      this.dummy.scale.setScalar(d[o + 8] * (1 + eb * 0.25));
+      this.dummy.updateMatrix();
+      petals.setMatrixAt(i, this.dummy.matrix);
+    }
+    petals.instanceMatrix.needsUpdate = true;
+  }
+
   /** Apply the "Uncap & paint" pose for progress u (no allocations). */
   private pose(u: number) {
     // 0 - 0.35: quarter twist, lift clear of the neck, then tilt the brush toward the fan
@@ -405,7 +593,14 @@ export class BloomScene {
     this.shadow.uSpread.value = 1 + fan * 0.12;
     this.shadow.uBottle.value.z = 1 - lift * 0.08;
 
-    this.camT = seg(u, 0, 0.5);
+    // 0.32 - 0.66: the brush lays a stroke of lacquer across the plinth
+    this.stroke.uGrow.value = seg(u, 0.32, 0.66);
+    // 0.55 - 1: the colours bloom: petals open outward and take the pigment
+    this.bloom = seg(u, 0.55, 1);
+    this.petalUniforms.uBloom.value = this.bloom;
+    this.layoutPetals();
+
+    this.camT = u;
     this.camDirty = true;
     this.posed = u;
   }
@@ -416,18 +611,26 @@ export class BloomScene {
     this.camDirty = true;
   }
 
-  /** Camera for the current pose: a 6° arc and a subtle dolly zoom (fov 31 -> 27). */
+  /** Camera for the current pose: eased between the chapter keys (no allocations). */
   applyCamera(camera: PerspectiveCamera, force = false) {
     if (!this.camDirty && !force) return;
     this.camDirty = false;
-    const c = this.camT;
-    const fov = 31 - 4 * c;
-    const dist = 5.7 * this.pull * (TAN_31 / Math.tan((fov / 2) * (Math.PI / 180))) * (1 + 0.12 * c);
-    const lookY = 1.12 + 0.42 * c;
-    const ang = c * 0.105;
-    camera.fov = fov;
-    camera.position.set(0.12 + Math.sin(ang) * dist * 0.9978, lookY + dist * 0.0665, Math.cos(ang) * dist * 0.9978);
-    camera.lookAt(0.12, lookY, 0);
+    const u = this.camT;
+    let k = 0;
+    while (k < CAM_KEYS.length - 2 && u > CAM_KEYS[k + 1][0]) k++;
+    const a = CAM_KEYS[k];
+    const b = CAM_KEYS[k + 1];
+    const t = ease(clamp01((u - a[0]) / (b[0] - a[0])));
+    for (let i = 0; i < 6; i++) CAM[i] = a[i + 1] + (b[i + 1] - a[i + 1]) * t;
+    const dist = CAM[0] * this.pull;
+    const lookX = CAM[1];
+    const lookY = CAM[2];
+    const ang = CAM[3];
+    const elev = CAM[4];
+    camera.fov = CAM[5];
+    const flat = Math.cos(elev) * dist;
+    camera.position.set(lookX + Math.sin(ang) * flat, lookY + Math.sin(elev) * dist, Math.cos(ang) * flat);
+    camera.lookAt(lookX, lookY, 0);
     camera.updateProjectionMatrix();
   }
 
@@ -437,7 +640,16 @@ export class BloomScene {
     if (instant) {
       this.lightsT = Infinity;
       this.env.uLights.value.set(1, 1);
-    } else this.lightsT = -0.25;
+      this.setIntro(1);
+    } else {
+      this.lightsT = -0.25;
+      this.setIntro(0);
+    }
+  }
+
+  /** The floating ribbons pour in once, as the lights come up. */
+  private setIntro(v: number) {
+    for (const r of this.ribbons) if (r !== this.stroke) r.uGrow.value = v;
   }
 
   /** Set a new pigment + finish. instant = cut (reduced motion / first paint). */
@@ -509,7 +721,8 @@ export class BloomScene {
       const key = ease(clamp01(this.lightsT / 0.9));
       const warm = ease(clamp01((this.lightsT - 0.2) / 0.9));
       this.env.uLights.value.set(key, warm);
-      if (warm >= 1) this.lightsT = Infinity;
+      this.setIntro(ease(clamp01((this.lightsT - 0.15) / INTRO_SECONDS)));
+      if (warm >= 1 && this.lightsT > INTRO_SECONDS + 0.15) this.lightsT = Infinity;
       moving = true;
     }
 
@@ -548,6 +761,8 @@ export class BloomScene {
       this.time += dt;
       this.polish.uTime.value = this.time;
       this.swatches.uTime.value = this.time;
+      for (const r of this.ribbons) r.uTime.value = this.time;
+      this.layoutPetals();
       moving = true;
     }
 
