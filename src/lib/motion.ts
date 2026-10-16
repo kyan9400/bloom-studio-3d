@@ -4,9 +4,9 @@ import { useSyncExternalStore } from "react";
 
 /*
   Motion preference.
-  prefers-reduced-motion is respected by default, but many Windows users switch animations off for
-  speed rather than comfort, so the visitor can turn full motion back on. The choice is remembered
-  in localStorage; ?motion=full / ?motion=reduced in the URL overrides it.
+  The studio starts in full motion on every first visit (many Windows users switch the OS animation
+  setting off for speed rather than comfort). The visitor can reduce motion with the toggle; the choice
+  is remembered in localStorage and ?motion=full / ?motion=reduced in the URL overrides it.
   The same rule runs as a tiny inline script in <head> (see MOTION_BOOT_SCRIPT) so the CSS class is
   set before first paint.
 */
@@ -32,7 +32,7 @@ function readChoice(): string | null {
 function compute(): Snapshot {
   const system = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const choice = readChoice();
-  const reduced = choice === "full" ? false : choice === "reduced" ? true : system;
+  const reduced = choice === "reduced";
   return { reduced, system, chosen: choice === "full" || choice === "reduced" };
 }
 

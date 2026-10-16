@@ -37,6 +37,11 @@ Live: https://bloom-studio-3d.vercel.app
   shade change.
 - **Procedural studio light**: soft boxes, top light and floor bounce are computed from the reflected vector inside
   the shader — no HDRI, no texture downloads. The contact shadow and AO are one code-made plane.
+- **A real studio around it**: behind the plinth stand two photogrammetry scans from Poly Haven (CC0) — a potted
+  succulent and a glazed ceramic vase — as meshopt-compressed `.glb` files with WebP textures (about 0.5 MB together,
+  in `public/models/`), loaded with the 3D chunk and decoded with three's bundled `MeshoptDecoder`. Two soft lights
+  that follow the "lights on" ramp, blurrier texture mips and a haze that follows the shade-tinted backdrop keep them
+  softly lit and slightly out of focus, so the bottle stays the hero.
 
 ## Performance
 - `frameloop="demand"`: frames are drawn only while a colour tween, the light ramp or sweep, drag inertia, the scroll
@@ -60,8 +65,9 @@ Live: https://bloom-studio-3d.vercel.app
   Only the two Fraunces files the H1 uses are preloaded (Manrope is not).
 - The 2D polish (H2 word reveals, progress bar, section dots, magnetic buttons, shade cursor) is one small client
   module with no libraries, started after `load` + idle; it never touches the hero.
-- Motion: `prefers-reduced-motion` is respected by default (no idle sway, colour changes cut instead of tween);
-  a **Turn on full motion** button (hero + footer) overrides it, remembered in `localStorage`, `?motion=full` also works.
+- Motion: the studio starts in full motion on every first visit. The **Reduce motion** button in the footer switches
+  to reduced motion (no idle sway, colour changes cut instead of tween), remembered in `localStorage`; a **Turn on full
+  motion** button (hero + footer) switches back. `?motion=reduced` / `?motion=full` also work.
 
 ## Run it
 ```bash
@@ -82,7 +88,8 @@ SPEC.md             concept, design system, copy and performance budget
 ```
 
 ## Credits
-See [CREDITS.md](./CREDITS.md). Fonts are OFL; libraries are MIT/Apache-2.0; all visuals are made in code.
+See [CREDITS.md](./CREDITS.md). Fonts are OFL; libraries are MIT/Apache-2.0; the plant and vase are CC0 scans
+from Poly Haven; every other visual is made in code.
 
 ## License
 © 2026 Alhassan Alfarran. All rights reserved — see [LICENSE](./LICENSE).

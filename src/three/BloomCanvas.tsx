@@ -60,7 +60,12 @@ function Warmup({ scene: bloom, flags, onReady }: { scene: BloomScene; flags: Re
     let alive = true;
     // renderer creation was its own long task; give the main thread a breath before compiling
     yieldToMain()
-      .then(() => (alive ? gl.compileAsync(scene, camera) : undefined))
+      .then(() => {
+        if (!alive) return;
+        // upload the scanned props' textures now too, so the first visible frame does not stall on them
+        bloom.textures.forEach((t) => gl.initTexture(t));
+        return gl.compileAsync(scene, camera);
+      })
       .catch(() => undefined)
       .then(() => {
         if (!alive) return;

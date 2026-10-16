@@ -495,7 +495,7 @@
   }
 }
 
-/* .reduce-motion follows prefers-reduced-motion by default but respects the "Turn on full motion" toggle. */
+/* .reduce-motion is set only when the visitor chose "Reduce motion" (or ?motion=reduced). */
 .reduce-motion .nav-mobile {
   animation: none;
 }

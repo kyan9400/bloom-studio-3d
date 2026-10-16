@@ -108,7 +108,7 @@ Tier features are shader `#define`s, so the low tier compiles smaller programs. 
 inertia, the scroll follower or the idle sway (full motion, canvas on screen, tab visible) is active.
 IntersectionObserver + visibilitychange pause it.
 
-**Reduced motion**: no idle sway, colour changes cut instantly, lights on at once, the scroll moment snaps to its
+**Reduced motion** (opt-in; the site starts in full motion): no idle sway, colour changes cut instantly, lights on at once, the scroll moment snaps to its
 final pose; drag still works. "Turn on full motion" toggle in the hero and footer (localStorage `bloom-motion`,
 `?motion=full` overrides).
 

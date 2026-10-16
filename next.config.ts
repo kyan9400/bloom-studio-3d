@@ -8,6 +8,8 @@ const PAGES_BASE = "/bloom-studio-3d";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // exposed to client code so the 3D chunk can prefix /models/* with the Pages base path
+  env: { NEXT_PUBLIC_GH_PAGES: isPages ? "1" : "" },
   ...(isPages && {
     output: "export",
     basePath: PAGES_BASE,

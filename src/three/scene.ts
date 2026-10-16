@@ -2,9 +2,11 @@ import {
   AdditiveBlending,
   BackSide,
   Color,
+  DirectionalLight,
   DoubleSide,
   FrontSide,
   Group,
+  HemisphereLight,
   InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
@@ -18,6 +20,7 @@ import {
   Vector4,
   type BufferGeometry,
   type Side,
+  type Texture,
 } from "three";
 import { FINISH_UNIFORMS, type Finish, type FinishUniforms } from "@/lib/shades";
 import {
@@ -51,6 +54,7 @@ import {
   shadowFragment,
 } from "./shaders";
 import type { TierSettings } from "./quality";
+import { loadStudioProps, type StudioProps } from "./props";
 
 /** Pointer + scroll state written by the page, read once per drawn frame. */
 export type SpinInput = {
@@ -250,10 +254,23 @@ export class BloomScene {
   private readonly holeOffset = new Matrix4().makeTranslation(0, -SWATCH_HOLE_Y, 0);
   private readonly instance = new Matrix4();
 
+  // the scanned studio props (null if they failed to load: the set simply goes without them) and their lights
+  private readonly props: StudioProps | null;
+  private readonly hemi = new HemisphereLight("#fff4f2", "#c99aa6", 0);
+  private readonly sun = new DirectionalLight("#fff1ea", 0);
+  // the backdrop's middle tone before the shade tint (see .stage-tint in globals.css)
+  private readonly backdrop = new Color("#f3e0da");
+
   /** Build the scene in small steps so no single task blocks the main thread for long. */
   static async create(settings: TierSettings): Promise<BloomScene> {
-    const geos = await buildGeometries(settings);
-    return new BloomScene(settings, geos);
+    // the props download and decode while the procedural geometry is built
+    const [geos, props] = await Promise.all([buildGeometries(settings), loadStudioProps().catch(() => null)]);
+    return new BloomScene(settings, geos, props);
+  }
+
+  /** Textures to upload before the reveal (so the first visible frame does not wait on them). */
+  get textures(): Texture[] {
+    return this.props ? this.props.textures : [];
   }
 
   private filmMaterial(swirl: number, seedShade: number, side: Side, defines: Record<string, string> = {}) {
@@ -283,7 +300,8 @@ export class BloomScene {
     return { material, uniforms };
   }
 
-  private constructor(settings: TierSettings, geos: Geometries) {
+  private constructor(settings: TierSettings, geos: Geometries, props: StudioProps | null) {
+    this.props = props;
     this.sparkleOn = settings.sparkle;
     this.swayOn = settings.sway;
     this.count = settings.swatches;
@@ -514,8 +532,26 @@ export class BloomScene {
       this.layoutPetals();
     }
 
+    // --- the studio behind the plinth: scanned plant and vase, lit only by these two soft lights
+    // (every other material is a custom shader with its own studio lighting, so they ignore them)
+    if (props) {
+      this.sun.position.set(-3, 5, 4);
+      this.root.add(this.hemi, this.sun, props.group);
+    }
+
     this.lacquers = [this.polish, this.swatches, ...this.ribbons];
     this.pose(0);
+  }
+
+  /** The props' haze follows the shade, like the CSS backdrop behind the canvas (about 18% of the pigment). */
+  private syncHaze() {
+    this.props?.haze.copy(this.backdrop).lerp(this.polish.uBase.value, 0.18);
+  }
+
+  /** The props' lights follow the studio's "lights on" ramp (key box, warm box). */
+  private setPropLights(key: number, warm: number) {
+    this.hemi.intensity = 2.1 * key;
+    this.sun.intensity = 2.3 * warm;
   }
 
   private track<T extends BufferGeometry>(g: T): T {
@@ -640,6 +676,7 @@ export class BloomScene {
     if (instant) {
       this.lightsT = Infinity;
       this.env.uLights.value.set(1, 1);
+      this.setPropLights(1, 1);
       this.setIntro(1);
     } else {
       this.lightsT = -0.25;
@@ -683,6 +720,7 @@ export class BloomScene {
       u.uSparkle.value = v.sparkle;
       u.uRough.value = v.rough;
     }
+    this.syncHaze();
   }
 
   /**
@@ -707,6 +745,7 @@ export class BloomScene {
         u.uSparkle.value = a.sparkle + (b.sparkle - a.sparkle) * t;
         u.uRough.value = a.rough + (b.rough - a.rough) * t;
       }
+      this.syncHaze();
       moving = true;
     }
     if (this.sweep < 1) {
@@ -721,6 +760,7 @@ export class BloomScene {
       const key = ease(clamp01(this.lightsT / 0.9));
       const warm = ease(clamp01((this.lightsT - 0.2) / 0.9));
       this.env.uLights.value.set(key, warm);
+      this.setPropLights(key, warm);
       this.setIntro(ease(clamp01((this.lightsT - 0.15) / INTRO_SECONDS)));
       if (warm >= 1 && this.lightsT > INTRO_SECONDS + 0.15) this.lightsT = Infinity;
       moving = true;
@@ -782,5 +822,6 @@ export class BloomScene {
   dispose() {
     this.geometries.forEach((g) => g.dispose());
     this.materials.forEach((m) => m.dispose());
+    this.props?.dispose();
   }
 }
