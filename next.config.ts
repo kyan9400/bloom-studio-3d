@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   // exposed to client code so the 3D chunk can prefix /models/* with the Pages base path
-  env: { NEXT_PUBLIC_GH_PAGES: isPages ? "1" : "" },
+  env: { NEXT_PUBLIC_PORTFOLIO_URL: isPages ? "https://kyan9400.github.io/alhassan_portfolio/" : "https://alhassan-portfolio-sigma.vercel.app", NEXT_PUBLIC_GH_PAGES: isPages ? "1" : "" },
   ...(isPages && {
     output: "export",
     basePath: PAGES_BASE,

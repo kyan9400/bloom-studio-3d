@@ -28,7 +28,7 @@ const CONTACTS = [
   { label: "Telegram", href: "https://t.me/hassan_9400" },
   { label: "Email", href: "mailto:kyan775909@gmail.com" },
   { label: "GitHub", href: "https://github.com/kyan9400" },
-  { label: "Portfolio", href: "https://alhassan-portfolio-sigma.vercel.app" },
+  { label: "Portfolio", href: process.env.NEXT_PUBLIC_PORTFOLIO_URL ?? "https://alhassan-portfolio-sigma.vercel.app" },
 ];
 
 const PILLARS = [
